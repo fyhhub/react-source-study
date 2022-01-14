@@ -51,21 +51,10 @@ function reducer(state, action) {
 // }
 
 function App() {
-  // 第一个hook
-  const [num1, setNum1] = useState(0)
-  let state
-
-  // 第二个hook
-  if (num1 > 1) {
-    // @eslint-disabled;
-    state = useState(0) // eslint-disable-line
-  }
-
-  // 第三个hook
-  const [num2, setNum2] = useState(0)
   return (
     <div className="parent">
-      <button onClick={() => setNum1(2)}>{num1}{num2}</button>
+      <button>button</button>
+      <span>123</span>
     </div>
   )
 }
