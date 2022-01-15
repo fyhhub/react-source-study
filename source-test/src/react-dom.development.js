@@ -14192,12 +14192,13 @@ function cloneChildFibers(current, workInProgress) {
   if (workInProgress.child === null) {
     return;
   }
-
+  // 获取workInProgress
   var currentChild = workInProgress.child;
+  // 复用current的子节点
   var newChild = createWorkInProgress(currentChild, currentChild.pendingProps);
   workInProgress.child = newChild;
   newChild.return = workInProgress;
-
+  // 复用current的子节点的兄弟节点
   while (currentChild.sibling !== null) {
     currentChild = currentChild.sibling;
     newChild = newChild.sibling = createWorkInProgress(currentChild, currentChild.pendingProps);
@@ -18770,16 +18771,20 @@ function bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes) {
   }
 
   markSkippedUpdateLanes(workInProgress.lanes); // Check if the children have any pending work.
-
+  // 子fiber上也没有任务需要执行，直接返回null
   if (!includesSomeLane(renderLanes, workInProgress.childLanes)) {
     // The children don't have any work either. We can skip them.
     // TODO: Once we add back resuming, we should check if the children are
     // a work-in-progress set. If so, we need to transfer their effects.
     return null;
+  
+  // 子fiber上存在任务需要执行
   } else {
     // This fiber doesn't have work, but its subtree does. Clone the child
     // fibers and continue.
+    // 复用current节点上的内容，到workInProgress的子节点上
     cloneChildFibers(current, workInProgress);
+    // 继续协调子节点
     return workInProgress.child;
   }
 }
@@ -18851,17 +18856,19 @@ function beginWork(current, workInProgress, renderLanes) {
       return remountFiber(current, workInProgress, createFiberFromTypeAndProps(workInProgress.type, workInProgress.key, workInProgress.pendingProps, workInProgress._debugOwner || null, workInProgress.mode, workInProgress.lanes));
     }
   }
-
+  // 更新时
   if (current !== null) {
     var oldProps = current.memoizedProps;
     var newProps = workInProgress.pendingProps;
-
+    // 新旧props是否变化 或 context有变化
     if (oldProps !== newProps || hasContextChanged() || ( // Force a re-render if the implementation changed due to hot reload:
      workInProgress.type !== current.type )) {
       // If props or context changed, mark the fiber as having performed work.
       // This may be unset if the props are determined to be equal later (memo).
+      // 标记需要更新
       didReceiveUpdate = true;
     } else if (!includesSomeLane(renderLanes, updateLanes)) {
+      // 如果此fiber上没有任务需要执行，例如rootFiber没有任务，如果我们更新了某个组件，那么这个组件的fiber才有任务
       didReceiveUpdate = false; // This fiber does not have any pending work. Bailout without entering
       // the begin phase. There's still some bookkeeping we that needs to be done
       // in this optimized path, mostly pushing stuff onto the stack.
@@ -21835,6 +21842,7 @@ function requestRetryLane(fiber) {
 function scheduleUpdateOnFiber(fiber, lane, eventTime) {
   checkForNestedUpdates();
   warnAboutRenderPhaseUpdatesInDEV(fiber);
+  // 把当前fiber产生的任务，从当前fiber上传到fiberRoot，在后序的协调过程中，可以用来判断子节点中是否存在更新任务
   var root = markUpdateLaneFromFiberToRoot(fiber, lane);
 
   if (root === null) {
