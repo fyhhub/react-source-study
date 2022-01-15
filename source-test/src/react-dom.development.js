@@ -18842,6 +18842,7 @@ function remountFiber(current, oldWorkInProgress, newWorkInProgress) {
 }
 
 function beginWork(current, workInProgress, renderLanes) {
+  debugger;
   var updateLanes = workInProgress.lanes;
 
   {

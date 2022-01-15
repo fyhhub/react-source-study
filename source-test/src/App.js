@@ -1,5 +1,5 @@
 import './App.css';
-import { createContext, useContext, useReducer, useState } from 'react';
+import { createContext, useContext, useReducer, useState } from './react.development.js';
 const initialData = {
   count: 1
 }
