@@ -9217,7 +9217,7 @@ function diffProperties(domElement, tag, lastRawProps, nextRawProps, rootContain
   var propKey;
   var styleName;
   var styleUpdates = null;
-
+  // 处理props属性被删除的情况
   for (propKey in lastProps) {
     if (nextProps.hasOwnProperty(propKey) || !lastProps.hasOwnProperty(propKey) || lastProps[propKey] == null) {
       continue;
@@ -9248,7 +9248,7 @@ function diffProperties(domElement, tag, lastRawProps, nextRawProps, rootContain
       (updatePayload = updatePayload || []).push(propKey, null);
     }
   }
-
+  // 处理props更新或者新增的情况
   for (propKey in nextProps) {
     var nextProp = nextProps[propKey];
     var lastProp = lastProps != null ? lastProps[propKey] : undefined;
@@ -9256,7 +9256,7 @@ function diffProperties(domElement, tag, lastRawProps, nextRawProps, rootContain
     if (!nextProps.hasOwnProperty(propKey) || nextProp === lastProp || nextProp == null && lastProp == null) {
       continue;
     }
-
+    // style变化或新增
     if (propKey === STYLE) {
       {
         if (nextProp) {
@@ -9300,6 +9300,8 @@ function diffProperties(domElement, tag, lastRawProps, nextRawProps, rootContain
 
         styleUpdates = nextProp;
       }
+
+    // dangerouslySetInnerHTML变化或新增
     } else if (propKey === DANGEROUSLY_SET_INNER_HTML) {
       var nextHtml = nextProp ? nextProp[HTML$1] : undefined;
       var lastHtml = lastProp ? lastProp[HTML$1] : undefined;
@@ -14015,6 +14017,7 @@ function ChildReconciler(shouldTrackSideEffects) {
             {
               if (child.elementType === element.type || ( // Keep this check inline so it only runs on the false path:
                isCompatibleFamilyForHotReloading(child, element) )) {
+                // 能走到这里，说明当前层级只有一个fiber, 需要删除其他多余的兄弟fiber
                 deleteRemainingChildren(returnFiber, child.sibling);
 
                 var _existing3 = useFiber(child, element.props);
@@ -18847,7 +18850,6 @@ function remountFiber(current, oldWorkInProgress, newWorkInProgress) {
 }
 
 function beginWork(current, workInProgress, renderLanes) {
-  debugger;
   var updateLanes = workInProgress.lanes;
 
   {
@@ -20476,6 +20478,7 @@ function commitBeforeMutationLifeCycles(current, finishedWork) {
 
     case ClassComponent:
       {
+        // 存在getSnapshotBeforeUpdate生命周期
         if (finishedWork.flags & Snapshot) {
           if (current !== null) {
             var prevProps = current.memoizedProps;
@@ -20618,7 +20621,9 @@ function schedulePassiveEffects(finishedWork) {
           tag = _effect.tag;
 
       if ((tag & Passive$1) !== NoFlags$1 && (tag & HasEffect) !== NoFlags$1) {
+        // 上次的销毁回调函数，放入pendingPassiveHookEffectsUnmount
         enqueuePendingPassiveHookEffectUnmount(finishedWork, effect);
+        // 本次useEffect的回调，放入到pendingPassiveHookEffectsMount
         enqueuePendingPassiveHookEffectMount(finishedWork, effect);
       }
 
@@ -20626,7 +20631,15 @@ function schedulePassiveEffects(finishedWork) {
     } while (effect !== firstEffect);
   }
 }
-
+/**
+ * 1. 执行useLayoutEffect回调
+ * 2. 收集useEffect的销毁函数
+ * 3. 收集useEffect的回调
+ * 4. 执行componentDidMount
+ * 5. 执行componentDidUpdate
+ * 6. 执行this.setState的回调函数
+ * 7. 执行ReactDOM.render的回调函数
+ */
 function commitLifeCycles(finishedRoot, current, finishedWork, committedLanes) {
   switch (finishedWork.tag) {
     case FunctionComponent:
@@ -20934,6 +20947,7 @@ function commitUnmount(finishedRoot, current, renderPriorityLevel) {
 
               if (destroy !== undefined) {
                 if ((tag & Passive$1) !== NoFlags$1) {
+                  // 收集useEffect的销毁函数
                   enqueuePendingPassiveHookEffectUnmount(current, effect);
                 } else {
                   {
@@ -20954,7 +20968,7 @@ function commitUnmount(finishedRoot, current, renderPriorityLevel) {
       {
         safelyDetachRef(current);
         var instance = current.stateNode;
-
+        // 执行componentWillUnmount
         if (typeof instance.componentWillUnmount === 'function') {
           safelyCallComponentWillUnmount(current, instance);
         }
@@ -20964,6 +20978,7 @@ function commitUnmount(finishedRoot, current, renderPriorityLevel) {
 
     case HostComponent:
       {
+        // 解绑ref
         safelyDetachRef(current);
         return;
       }
@@ -21139,7 +21154,7 @@ function getHostSibling(fiber) {
 
 function commitPlacement(finishedWork) {
 
-
+  // 跳过组件fiber，找到父dom的 fiber
   var parentFiber = getHostParentFiber(finishedWork); // Note: these two variables *must* always be updated together.
 
   var parent;
@@ -21181,10 +21196,11 @@ function commitPlacement(finishedWork) {
 
     parentFiber.flags &= ~ContentReset;
   }
-
+  // 获取host类型的兄弟节点
   var before = getHostSibling(finishedWork); // We only have the top Fiber that was inserted but we need to recurse down its
   // children to find all the terminal nodes.
 
+  // 插入节点
   if (isContainer) {
     insertOrAppendPlacementNodeIntoContainer(finishedWork, before, parent);
   } else {
@@ -21256,7 +21272,7 @@ function unmountHostComponents(finishedRoot, current, renderPriorityLevel) {
 
   var currentParent;
   var currentParentIsContainer;
-
+  // 找到父节点
   while (true) {
     if (!currentParentIsValid) {
       var parent = node.return;
@@ -21293,7 +21309,7 @@ function unmountHostComponents(finishedRoot, current, renderPriorityLevel) {
 
       currentParentIsValid = true;
     }
-
+    // 递归删除子fiber树
     if (node.tag === HostComponent || node.tag === HostText) {
       commitNestedUnmounts(finishedRoot, node); // After all the children have unmounted, it is now safe to remove the
       // node from the tree.
@@ -21348,6 +21364,13 @@ function unmountHostComponents(finishedRoot, current, renderPriorityLevel) {
   }
 }
 
+/**
+ * 1. 删除dom
+ * 2. 删除fiber
+ * 3. 收集useEffect的返回的回调
+ * 4. 执行componentWillUnmount
+ * 5. 解绑ref
+ */
 function commitDeletion(finishedRoot, current, renderPriorityLevel) {
   {
     // Recursively delete all host nodes from the parent.
@@ -21362,7 +21385,10 @@ function commitDeletion(finishedRoot, current, renderPriorityLevel) {
     detachFiberMutation(alternate);
   }
 }
-
+/**
+ * 1. 调用useLayoutEffect的销毁函数
+ * 2. 更新dom属性
+ */
 function commitWork(current, finishedWork) {
 
   switch (finishedWork.tag) {
@@ -21377,6 +21403,7 @@ function commitWork(current, finishedWork) {
         // This prevents sibling component effects from interfering with each other,
         // e.g. a destroy function in one component should never override a ref set
         // by a create function in another component during the same commit.
+        // 调用useLayoutEffect的销毁函数
         {
           commitHookEffectListUnmount(Layout | HasEffect, finishedWork);
         }
@@ -22810,7 +22837,9 @@ function completeUnitOfWork(unitOfWork) {
     // The current, flushed, state of this fiber is the alternate. Ideally
     // nothing should rely on this, but relying on it here means that we don't
     // need an additional field on the work in progress.
+    // 获取current fiber
     var current = completedWork.alternate;
+    // 父fiber
     var returnFiber = completedWork.return; // Check if the work completed or if something threw.
 
     if ((completedWork.flags & Incomplete) === NoFlags) {
@@ -22835,7 +22864,8 @@ function completeUnitOfWork(unitOfWork) {
       }
 
       resetChildLanes(completedWork);
-
+      // 如果父fiber存在，并且当前节点的兄弟节点，在递和归节点抛出错误，那么就会被标记Incomplete Tag
+      // 当前条件判断，表示没有出现错误，就会走正常逻辑
       if (returnFiber !== null && // Do not append effects to parents if a sibling failed to complete
       (returnFiber.flags & Incomplete) === NoFlags) {
         // Append all the effects of the subtree and this fiber onto the effect
@@ -23001,6 +23031,7 @@ function commitRoot(root) {
 }
 
 function commitRootImpl(root, renderPriorityLevel) {
+  // 函数组件如果使用了useEffect，会被标记PassiveEffect，在commit一开始，就先看下是否还有没有执行的useEffect，如果有就去执行
   do {
     // `flushPassiveEffects` will call `flushSyncUpdateQueue` at the end, which
     // means `flushPassiveEffects` will sometimes result in additional
@@ -23061,7 +23092,7 @@ function commitRootImpl(root, renderPriorityLevel) {
 
 
   var firstEffect;
-
+  // 如果rootFiber上也存在effect Tag 那么就把rootFiber挂在链表的最后
   if (finishedWork.flags > PerformedWork) {
     // A fiber's effect list consists only of its children, not itself. So if
     // the root has an effect, we need to add it to the end of the list. The
@@ -23073,6 +23104,8 @@ function commitRootImpl(root, renderPriorityLevel) {
     } else {
       firstEffect = finishedWork;
     }
+  
+  // 如果rootFiber不存在effect tag, 就获取第一个effect fiber
   } else {
     // There is no effect on the root.
     firstEffect = finishedWork.firstEffect;
@@ -23148,7 +23181,7 @@ function commitRootImpl(root, renderPriorityLevel) {
     // the mutation phase, so that the previous tree is still current during
     // componentWillUnmount, but before the layout phase, so that the finished
     // work is current during componentDidMount/Update.
-
+    // 双缓冲机制，将current指向workInprogress,此时workInprogress变成了current
     root.current = finishedWork; // The next phase is the layout phase, where we call effects that read
     // the host tree after it's been mutated. The idiomatic use case for this is
     // layout, but class component lifecycles also fire here for legacy reasons.
@@ -23196,7 +23229,7 @@ function commitRootImpl(root, renderPriorityLevel) {
   }
 
   var rootDidHavePassiveEffects = rootDoesHavePassiveEffects;
-
+  // 存在useEffect 回调
   if (rootDoesHavePassiveEffects) {
     // This commit has passive effects. Stash a reference to them. But don't
     // schedule a callback until after flushing layout work.
@@ -23224,7 +23257,7 @@ function commitRootImpl(root, renderPriorityLevel) {
 
 
   remainingLanes = root.pendingLanes; // Check if there's remaining work on this root
-
+  // 与devtool有关 不用了解
   if (remainingLanes !== NoLanes) {
     {
       if (spawnedWorkDuringRender !== null) {
@@ -23274,7 +23307,7 @@ function commitRootImpl(root, renderPriorityLevel) {
   } // Always call this before exiting `commitRoot`, to ensure that any
   // additional work on this root is scheduled.
 
-
+  // commit阶段可能产生新的更新，对根节点重新调度一次
   ensureRootIsScheduled(root, now());
 
   if (hasUncaughtError) {
@@ -23293,16 +23326,23 @@ function commitRootImpl(root, renderPriorityLevel) {
     return null;
   } // If layout work was scheduled, flush it now.
 
-
+  // 执行同步任务，例如useLayoutEffect中执行setStae,此时产生的更新就是同步的
+  // 但是上述的情况，只有在concurrnet mode下才会生效，从而立即执行更新
   flushSyncCallbackQueue();
 
   return null;
 }
 
+/**
+ * 1. dom的blur和focus相关操作
+ * 2. 执行getSnapshotBeforeUpdate
+ * 3. 存在Passive 异步调度执行useEffect
+ */
 function commitBeforeMutationEffects() {
   while (nextEffect !== null) {
     var current = nextEffect.alternate;
 
+    // dom的blur和focus相关操作
     if (!shouldFireAfterActiveInstanceBlur && focusedInstanceHandle !== null) {
       if ((nextEffect.flags & Deletion) !== NoFlags) {
         if (doesFiberContain(nextEffect, focusedInstanceHandle)) {
@@ -23318,18 +23358,22 @@ function commitBeforeMutationEffects() {
 
     var flags = nextEffect.flags;
 
+    // 执行getSnapshotBeforeUpdate
     if ((flags & Snapshot) !== NoFlags) {
       setCurrentFiber(nextEffect);
       commitBeforeMutationLifeCycles(current, nextEffect);
       resetCurrentFiber();
     }
 
+    // fiber存在Passive 也就是 使用了 useEffect
     if ((flags & Passive) !== NoFlags) {
       // If there are passive effects, schedule a callback to flush at
       // the earliest opportunity.
       if (!rootDoesHavePassiveEffects) {
         rootDoesHavePassiveEffects = true;
+        // 异步执行
         scheduleCallback(NormalPriority$1, function () {
+          // 会执行useEffect的回调函数
           flushPassiveEffects();
           return null;
         });
@@ -23341,11 +23385,13 @@ function commitBeforeMutationEffects() {
 }
 
 function commitMutationEffects(root, renderPriorityLevel) {
+  debugger
   // TODO: Should probably move the bulk of this function to commitWork.
   while (nextEffect !== null) {
     setCurrentFiber(nextEffect);
     var flags = nextEffect.flags;
 
+    // 重置文本节点
     if (flags & ContentReset) {
       commitResetTextContent(nextEffect);
     }
@@ -23365,6 +23411,7 @@ function commitMutationEffects(root, renderPriorityLevel) {
     var primaryFlags = flags & (Placement | Update | Deletion | Hydrating);
 
     switch (primaryFlags) {
+      // 插入dom
       case Placement:
         {
           commitPlacement(nextEffect); // Clear the "placement" from effect tag so that we know that this is
@@ -23413,6 +23460,7 @@ function commitMutationEffects(root, renderPriorityLevel) {
 
       case Deletion:
         {
+          // 删除节点
           commitDeletion(root, nextEffect);
           break;
         }
@@ -23425,7 +23473,7 @@ function commitMutationEffects(root, renderPriorityLevel) {
 
 function commitLayoutEffects(root, committedLanes) {
 
-
+  debugger;
   while (nextEffect !== null) {
     setCurrentFiber(nextEffect);
     var flags = nextEffect.flags;
@@ -23436,6 +23484,7 @@ function commitLayoutEffects(root, committedLanes) {
     }
 
     {
+      // 处理ref
       if (flags & Ref) {
         commitAttachRef(nextEffect);
       }
@@ -23496,6 +23545,10 @@ function invokePassiveEffectCreate(effect) {
   effect.destroy = create();
 }
 
+/**
+ * 1. 执行上次更新的useEffect销毁函数
+ * 2. 执行本次更新的useEffect回调
+ */
 function flushPassiveEffectsImpl() {
   if (rootWithPendingPassiveEffects === null) {
     return false;
@@ -23528,7 +23581,7 @@ function flushPassiveEffectsImpl() {
 
   var unmountEffects = pendingPassiveHookEffectsUnmount;
   pendingPassiveHookEffectsUnmount = [];
-
+  // 执行useEffect上次更新的销毁函数
   for (var i = 0; i < unmountEffects.length; i += 2) {
     var _effect = unmountEffects[i];
     var fiber = unmountEffects[i + 1];
@@ -23571,7 +23624,7 @@ function flushPassiveEffectsImpl() {
 
   var mountEffects = pendingPassiveHookEffectsMount;
   pendingPassiveHookEffectsMount = [];
-
+  // 执行useEffect回调
   for (var _i = 0; _i < mountEffects.length; _i += 2) {
     var _effect2 = mountEffects[_i];
     var _fiber = mountEffects[_i + 1];
